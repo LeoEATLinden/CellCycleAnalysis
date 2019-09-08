@@ -3,4 +3,3 @@ A Deep Learning method to annotate time lapse microscopy data of cells expressin
 
 © 2019 Leo Lindén. 
 
-You may use this software for private or academic use.  
