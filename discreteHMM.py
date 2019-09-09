@@ -22,8 +22,8 @@ class discreteHMM:
        The emission probability matrix, probabilityMatrix[i,j] is 
        the probability of observing observation j in hidden state i
     updateProbability : bool
-       Decide if the probabilityMatrix should be updated during fitting
-       or not
+      Decide if the probabilityMatrix should be updated during fitting
+      or not
 
     Methods 
     -------
@@ -44,7 +44,7 @@ class discreteHMM:
   updateProbability = True
 
 
-  def __init__(self,observations,initalState,transitionMatrix,probabilityMatrix,updateProbability):
+  def __init__(self,observations,initialState,transitionMatrix,probabilityMatrix,updateProbability):
     """
     Parameters
     ----------
@@ -89,7 +89,7 @@ class discreteHMM:
       The maximum number of iterations to apply EM for
 
      """
-    bMatrix, transitionMatrix,initialState = self.__EM(self,self.transitionMatrix,
+    bMatrix, transitionMatrix,initialState = self.EM(self.transitionMatrix,
       self.observations,self.initialState,self.discreteEmissionProb,
       self.discreteEmissionUpdate,self.probabilityMatrix,maxIter,
       updateInitialState,updateProbability)
@@ -120,11 +120,11 @@ class discreteHMM:
       distribution of paths.
      """
 
-    path = veritebi(self,self.observations,self.transitionMatrix,
+    path = self.viterbi(self.observations,self.transitionMatrix,
       self.probabilityMatrix,self.discreteEmissionProb,self.initialState)
-    gamma,xi = self.forwardBackward(self,self.transitionMatrix,self.observations,
+    gamma,xi = self.forwardBackward(self.transitionMatrix,self.observations,
       self.initialState,self.discreteEmissionProb,self.probabilityMatrix)
-    samples = self.generateSamples(self,num_samples,gamma,xi)
+    samples = self.generateSamples(num_samples,gamma,xi)
     std_post = np.mean(np.abs(np.std(samples,axis=0)))
     return path,std_post
 
@@ -324,8 +324,8 @@ class discreteHMM:
     T = observations.shape[0]
     gamma = np.zeros((T,N))
     xi = np.zeros((T-1,N,N))
-    f = forwardPass(transitionMatrix,observations,initialState,emissionProb,bMatrix)
-    b = backwardPass(transitionMatrix,observations,initialState,emissionProb,bMatrix)
+    f = self.forwardPass(transitionMatrix,observations,initialState,emissionProb,bMatrix)
+    b = self.backwardPass(transitionMatrix,observations,initialState,emissionProb,bMatrix)
     for t in range(T-1):
       for i in range(N):
         for j in range(N):
@@ -339,7 +339,7 @@ class discreteHMM:
     
   def EMstep(self,transitionMatrix,observations,initialState,
          emissionProb,updateRule,bMatrix,init,updateProbability):
-   """ The Expectation Maximization algorithm
+    """ The Expectation Maximization algorithm
 
     Uses one iteration of the expectation maximization algorithm
     to update the parameters of the hidden markov model. If any of 
@@ -390,7 +390,7 @@ class discreteHMM:
     states = initialState.shape[0]
     T = observations.shape[0]
 
-    gamma,xi = forwardBackward(transitionMatrix,observations,initialState,emissionProb,bMatrix)
+    gamma,xi = self.forwardBackward(transitionMatrix,observations,initialState,emissionProb,bMatrix)
     N = transitionMatrix.shape[0]
     #nTM = np.zeros(transitionMatrix.shape)
     nTM = transitionMatrix.copy()
@@ -471,7 +471,7 @@ class discreteHMM:
     """
     steps = 0
     while True:
-      bMatrix,transitionMatrix,initialState,db,dT,dP = EMstep(transitionMatrix,observations,initialState,
+      bMatrix,transitionMatrix,initialState,db,dT,dP = self.EMstep(transitionMatrix,observations,initialState,
      emissionProb,updateRule,bMatrix,init,updateProbability)
       steps += 1
       if steps==maxIter:
@@ -520,10 +520,10 @@ class discreteHMM:
       if t == 0:
         for i in range(N):
           v[t,i] = emissionProb(i,observations[t],bMatrix)*initialState[i]
-        else:
-          for i in range(N):
-            v[t,i] = np.max(emissionProb(i,observations[t],bMatrix)*v[t-1,:]*transitionMatrix[:,i])
-            b[t,i] = np.argmax(emissionProb(i,observations[t],bMatrix)*v[t-1,:]*transitionMatrix[:,i])
+      else:
+        for i in range(N):
+          v[t,i] = np.max(emissionProb(i,observations[t],bMatrix)*v[t-1,:]*transitionMatrix[:,i])
+          b[t,i] = np.argmax(emissionProb(i,observations[t],bMatrix)*v[t-1,:]*transitionMatrix[:,i])
     path[T-1] = np.argmax(v[T-1,:])
     for t in range(T-2,-1,-1):
       path[t] = b[t+1,int(path[t+1])]
