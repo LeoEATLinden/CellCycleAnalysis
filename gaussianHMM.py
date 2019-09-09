@@ -39,12 +39,13 @@ class gaussianHMM:
   transitionMatrix = None
   initialState = None
   observations = None
+  observables = None
   mu = None
   sigma = None
 
 
 
-  def __init__(self,observations,initalState,transitionMatrix,mu,sigma):
+  def __init__(self,observations,initialState,transitionMatrix,mu,sigma):
     """
     Parameters
     ----------
@@ -67,6 +68,7 @@ class gaussianHMM:
 
     """
     self.states = transitionMatrix.shape[0]
+    self.observables = observations.shape[1]
     self.observations = observations
     self.transitionMatrix = transitionMatrix
     self.initialState = initialState
@@ -75,7 +77,7 @@ class gaussianHMM:
 
 
 
-  def fit_parameters(self,updateInitialState,updateProbability,maxIter):
+  def fit_parameters(self,updateInitialState,maxIter):
     """ Fits the parameters of the HMM
 
     If update initialState is true the initial state vector will be updated
@@ -93,10 +95,11 @@ class gaussianHMM:
       The maximum number of iterations to apply EM for
 
      """
-    mu,sigma, transitionMatrix,initialState,dM,dS,dT,dP = EM(self.transitionMatrix,
-      self.observations,self.initialState,
-      self.multivariateGaussian,self.multivariateGaussianMSStep,
-      self.mu,self.sigma,maxIter,init=True)
+     
+
+    mu,sigma, transitionMatrix,initialState,dM,dS,dT,dP = self.EM(self.transitionMatrix,
+      self.observations,self.initialState,self.multivariateGaussian,self.multivariateGaussianMSStep,
+    self.mu,self.sigma,maxIter,updateInitialState)
   
     self.mu = mu 
     self.sigma = sigma 
@@ -127,17 +130,19 @@ class gaussianHMM:
      """
     sigma = self.sigma
     mu = self.mu
-    Q = np.empty((states,traces,traces))
+    states = self.states
+    observables = self.observables
+    Q = np.empty((states,observables,observables))
     det = np.empty(states)
     for state in range(states):
       Q[state,:,:] = np.linalg.inv(sigma[state,:,:])
       det[state] = np.linalg.det(sigma[state,:,:])
 
-    path = veritebi(self,self.observations,self.transitionMatrix,
+    path = self.viterbi(self.observations,self.transitionMatrix,
       self.mu,self.sigma,self.multivariateGaussian,self.initialState)
-    gamma,xi = self.forwardBackward(self,self.transitionMatrix,self.observations,
+    gamma,xi = self.forwardBackward(self.transitionMatrix,self.observations,
       self.initialState,self.multivariateGaussian,mu,det,Q)
-    samples = self.generateSamples(self,num_samples,gamma,xi)
+    samples = self.generateSamples(num_samples,gamma,xi)
     std_post = np.mean(np.abs(np.std(samples,axis=0)))
     return path,std_post
 
@@ -171,8 +176,8 @@ class gaussianHMM:
         samples[sample,time] = np.random.choice(a, p=prob)
     return samples
 
-  def multivariateGaussian(state,observation,mu,det,Q):
-     """ Returns the probability of emitting a observation in a state
+  def multivariateGaussian(self,state,observation,mu,det,Q):
+    """ Returns the probability of emitting a observation in a state
 
     Parameters
     ----------
@@ -197,7 +202,7 @@ class gaussianHMM:
     -------
     prob : float
       The probability of observing the observation in state state.
-     """
+    """
     m = mu[state,:]
     d = det[state]
     q = Q[state,:,:]
@@ -208,8 +213,8 @@ class gaussianHMM:
     prob = np.exp(-0.5*(diff*q*diff.transpose())[0,0])/np.sqrt((2*np.pi)**M*d)
     return prob
 
-  def multivariateGaussianMSStep(state,gamma,observation,mu,Sigma):
-     """ updates the emission probabilities in state state
+  def multivariateGaussianMSStep(self,state,gamma,observation,mu,Sigma):
+    """ updates the emission probabilities in state state
 
     Parameters
     ----------
@@ -231,7 +236,7 @@ class gaussianHMM:
       The new mean vector
     sigma : np.array(observables,observables)
       The new covariance matrix
-     """
+    """
     gammaState = gamma[:,state]
     muVec = np.dot(gammaState,observation)/np.sum(gammaState)
     
@@ -243,7 +248,7 @@ class gaussianHMM:
     sigma = sigma/np.sum(gammaState)
     return muVec,sigma
 
-  def forwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
+  def forwardPass(self,transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
     """ Does a forward pass to compute the forward probability
 
     Parameters
@@ -290,7 +295,7 @@ class gaussianHMM:
       f[t,:] = f[t,:]/np.sum(f[t,:])
     return f
       
-  def backwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
+  def backwardPass(self,transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
     """ Does a backwards pass to compute the backwards probability
 
     Parameters
@@ -337,7 +342,7 @@ class gaussianHMM:
       b[t,:] = b[t,:]/np.sum(b[t,:])
     return b
 
-  def forwardBackward(transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
+  def forwardBackward(self,transitionMatrix,observations,initialState,emissionProb,mu,det,Q):
     """ The forward backward algorithm
 
     Computes the smoothed marginal distribution and the
@@ -380,8 +385,8 @@ class gaussianHMM:
     T,M = observations.shape
     gamma = np.zeros((T,N))
     xi = np.zeros((T-1,N,N))
-    f = forwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
-    b = backwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
+    f = self.forwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
+    b = self.backwardPass(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
     for t in range(T-1):
       for i in range(N):
           for j in range(N):
@@ -393,7 +398,7 @@ class gaussianHMM:
       gamma[t,:] = gamma[t,:]/np.sum(gamma[t,:])    
     return gamma,xi
     
-  def EMstep(transitionMatrix,observations,initialState,
+  def EMstep(self,transitionMatrix,observations,initialState,
        emissionProb,updateRule,mu,sigma,init=True):
     """ The Expectation Maximization algorithm
 
@@ -458,7 +463,7 @@ class gaussianHMM:
       Q[state,:,:] = np.linalg.inv(sigma[state,:,:])
       det[state] = np.linalg.det(sigma[state,:,:])
     
-    gamma,xi = forwardBackward(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
+    gamma,xi = self.forwardBackward(transitionMatrix,observations,initialState,emissionProb,mu,det,Q)
     N = transitionMatrix.shape[0]
     nTM = transitionMatrix.copy()
     for n in range(N):
@@ -481,9 +486,9 @@ class gaussianHMM:
         return mu,sigma,transitionMatrix,initialState,0,0,0,0
     return newMu,newSigma,nTM,newPI,dM,dS,dT,dP
     
-def EM(transitionMatrix,observations,initialState,emissionProb,updateRule,
-  mu,sigma,maxIter,init=True):
-  """ The expectation-maximization algorithm
+  def EM(self,transitionMatrix,observations,initialState,emissionProb,updateRule,
+    mu,sigma,maxIter,init):
+    """ The expectation-maximization algorithm
 
     The expectation-maximization algorithm updates the parameters of the HMM
     for maxIter iterations or untill the update returns a paramer containins
@@ -538,8 +543,8 @@ def EM(transitionMatrix,observations,initialState,emissionProb,updateRule,
     """
     steps = 0
     while True:
-        mu,sigma,transitionMatrix,initialState,dM,dS,dT,dP = EMstep(transitionMatrix,observations,initialState,
-       emissionProb,updateRule,mu,sigma,limit,back,init)
+        mu,sigma,transitionMatrix,initialState,dM,dS,dT,dP = self.EMstep(transitionMatrix,observations,initialState,
+       emissionProb,updateRule,mu,sigma,init)
         steps += 1
         if steps == maxIter:
             return mu,sigma, transitionMatrix,initialState,dM,dS,dT,dP
@@ -576,34 +581,33 @@ def EM(transitionMatrix,observations,initialState,emissionProb,updateRule,
     path : np.array(T)
       The most probable sequence of hidden states
     """
-    T,M = observations.shape
+    T = observations.shape[0]
     N = transitionMatrix.shape[0]
     path = np.empty(T)
     v = np.zeros((T,N))
     b = np.zeros((T,N))
     path = np.ones(T)*(N-1)
-    
-    states = initialState.shape[0]
-    T,traces = observations.shape
-    
-    
-    Q = np.empty((states,traces,traces))
+    states = self.states
+    observables = self.observables
+    Q = np.empty((states,observables,observables))
     det = np.empty(states)
     for state in range(states):
-        Q[state,:,:] = np.linalg.inv(sigma[state,:,:])
-        det[state] = np.linalg.det(sigma[state,:,:])
+      Q[state,:,:] = np.linalg.inv(sigma[state,:,:])
+      det[state] = np.linalg.det(sigma[state,:,:])
+    
+    states = initialState.shape[0]
+    T = observations.shape[0]
     
     for t in range(T):
       if t == 0:
-        for i in range(N):
-          v[t,i] = emissionProb(i,observations[t],mu,det,Q)*initialState[i]
-        else:
           for i in range(N):
-            v[t,i] = np.max(emissionProb(i,observations[t],mu,det,Q)*v[t-1,:]*transitionMatrix[:,i])
-            b[t,i] = np.argmax(emissionProb(i,observations[t],mu,det,Q)*v[t-1,:]*transitionMatrix[:,i])
+            v[t,i] = emissionProb(i,observations[t],mu,det,Q)*initialState[i]
+      else:
+        for i in range(N):
+          v[t,i] = np.max(emissionProb(i,observations[t],mu,det,Q)*v[t-1,:]*transitionMatrix[:,i])
+          b[t,i] = np.argmax(emissionProb(i,observations[t],mu,det,Q)*v[t-1,:]*transitionMatrix[:,i])
     path[T-1] = np.argmax(v[T-1,:])
     for t in range(T-2,-1,-1):
       path[t] = b[t+1,int(path[t+1])]
     return path
     
-
