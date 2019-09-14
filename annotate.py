@@ -81,4 +81,12 @@ class Annotate:
       state = (state+1)%4
     self.annotated = np.append(self.annotated,cell)
     np.save(self.label_path,self.annotated)
-    np.save(os.path.join(self.path_to_save,'label{}.npy'.format(cell)), label)
+    np.save(os.path.join(self.path_to_save,'labels{}.npy'.format(cell)), label)
+
+if __name__ == '__main__':
+  print('Please enter full path to folder with tiff images')
+  path_to_images = input()
+  print('Please enter full path to folder in which to save images')
+  path_to_save = input()
+
+  ann = Annotate(path_to_images,path_to_save)
