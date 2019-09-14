@@ -234,11 +234,12 @@ class cellCyclePredictor:
       tM,pi = self.initializeParams(case)
       obs = self.getObservations(cell)
       self.hmm.update_parameters(obs,pi,tM,self.emissionMatrix)
-      self.hmm.fit_parameters(case == 1,case==2,25)
+      self.hmm.fit_parameters(case == 1,method==2,25)
       path,std = self.hmm.predict_path(100)
       self.store_results(id_num,path,std)
+      return path,std
 
-  def classify_all_cells(self,case,method):
+  def classify_all_cells(self,case,method,index_file=None):
     """
     Classifies all cells metione in the details.pkl file 
     in the images folder.
@@ -249,11 +250,24 @@ class cellCyclePredictor:
       The case to use
     method : int
       The method to use
+    index_file : string
+      A file path to a .npy file containing
+      the indexes to classify
     """
     path_to_cells = os.path.join(self.path_to_images,'details.pkl')
     df = pd.read_pickle(path_to_cells)
     ids = df['ID']
     case2_ids = df[df['CASE2'] == True]['ID']
+
+    indexes = None
+    if index_file == None:
+      indexes = ids
+    else:
+      indexes = np.load(index_file)
+
+    ids = np.array(list(set(ids).intersect(set(indexes))))
+    case2_ids = np.array(list(set(case2_ids).intersect(set(indexes))))
+
     if case == 1:
       print('Classifying Case 1 Using Method {}\n'.format(method))
       num_cells = int(ids.size)
@@ -275,7 +289,7 @@ class cellCyclePredictor:
 
 if __name__ == '__main__':
   print('########################')
-  print('####### Method 1 #######')
+  print('###### Method CNN ######')
   print('########################')
   print('\n')
   print('Enter the path to the folder containing the \n segmented images')
