@@ -46,7 +46,7 @@ class Segment:
     self.pcna_ch = pcna_ch
 
 
-  def findObjects(self,minLength=50):
+  def findObjects(self,minLength=0):
     """
     Reads files and ids
 
@@ -231,6 +231,23 @@ class Segment:
     save_path_frame = os.path.join(self.path_to_save,self.saveFrameName)
     df.to_pickle(save_path_frame)
 
+if __name__ == '__main__':
+  
+  print('Please enter the path to the folder with the tiff images')
+  path_to_images = input()
+  print('Please enter the path to the file with cell coordinates')
+  path_to_track1 = input()
+  print('Please enter the path to the file with start and end events')
+  path_to_track2 = input()
+  print('Please enter path to folder in which to save')
+  path_to_save = input()
+  print('Please enter number of pcna_channel')
+  ch_num = input()
+  ch_num = int(ch_num)
+
+  seg = Segment(path_to_images,path_to_track1,path_to_track2,path_to_save,ch_num)
+  seg.findObjects()
+  seg.extractObjectsParallel()
 
 
 
