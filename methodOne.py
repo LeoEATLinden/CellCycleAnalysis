@@ -230,8 +230,9 @@ class cellCyclePredictor:
       self.hmm.fit_parameters(case == 1,25)
       path,std = self.hmm.predict_path(100)
       self.store_results(id_num,path,std)
+      return path,std
 
-  def classify_all_cells(self,case):
+  def classify_all_cells(self,case,index_file=None):
     """
     Classifies all cells metione in the details.pkl file 
     in the images folder.
@@ -245,8 +246,19 @@ class cellCyclePredictor:
 
     path_to_cells = os.path.join(self.path_to_images,'details.pkl')
     df = pd.read_pickle(path_to_cells)
+
     ids = df['ID']
+
     case2_ids = df[df['CASE2'] == True]['ID']
+
+    indexes = None
+    if index_file == None:
+      indexes = ids
+    else:
+      indexes = np.load(index_file)
+
+    ids = np.array(list(set(ids).intersect(set(indexes))))
+    case2_ids = np.array(list(set(case2_ids).intersect(set(indexes))))
     if case == 1:
       print('Classifying Case 1 \n')
       num_cells = int(ids.size)
